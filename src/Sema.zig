@@ -7078,7 +7078,14 @@ fn zirCall(
     };
     const extra = sema.code.extraData(ExtraType, inst_data.payload_index);
     const args_len = extra.data.flags.args_len;
+    if (@bitSizeOf(@TypeOf(args_len)) != 26) {
+        std.debug.panic("Size of args_len is actually {}.\n", .{args_len});
+    }
 
+    const n = extra.data.flags.packed_modifier;
+    if (n < 0 or n > 8) {
+        std.debug.panic("Value of n not on segment [0, 8]. The actual value is {}.\n", .{n});
+    }
     const modifier: std.builtin.CallModifier = @enumFromInt(extra.data.flags.packed_modifier);
     const ensure_result_used = extra.data.flags.ensure_result_used;
     const pop_error_return_trace = extra.data.flags.pop_error_return_trace;
@@ -7602,6 +7609,7 @@ fn analyzeCall(
 
         .never_tail => Air.Inst.Tag.call_never_tail,
         .never_inline => Air.Inst.Tag.call_never_inline,
+        .never_intrinsify => Air.Inst.Tag.call_never_intrinsify,
         .always_tail => Air.Inst.Tag.call_always_tail,
 
         .async_kw => return sema.failWithUseOfAsync(block, call_src),
@@ -25719,7 +25727,7 @@ fn zirBuiltinCall(sema: *Sema, block: *Block, inst: Zir.Inst.Index) CompileError
     var modifier = zcu.toEnum(std.builtin.CallModifier, modifier_val);
     switch (modifier) {
         // These can be upgraded to comptime or nosuspend calls.
-        .auto, .never_tail, .no_async => {
+        .auto, .never_tail, .never_intrinsify, .no_async => {
             if (block.is_comptime) {
                 if (modifier == .never_tail) {
                     return sema.fail(block, modifier_src, "unable to perform 'never_tail' call at compile-time", .{});

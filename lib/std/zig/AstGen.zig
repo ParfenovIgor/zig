@@ -10157,6 +10157,10 @@ fn callExpr(
         else => false,
     };
 
+    const m: Zir.Inst.Call.Flags.PackedModifier = @intCast(@intFromEnum(modifier));
+    if (m < 0 or m > 8) {
+        std.debug.panic("Value of m not on segment [0, 8]. The actual value is {}.\n", .{m});
+    }
     switch (callee) {
         .direct => |callee_obj| {
             const payload_index = try addExtra(astgen, Zir.Inst.Call{
